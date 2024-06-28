@@ -1,0 +1,41 @@
+{
+    "name": "Bébé Sacha",
+    "short_name": "Sacha",
+    "start_url": "index.html",
+    "scope": "./",
+    "icons": [
+      {
+        "src": "icons/bebe.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ],
+    "theme_color": "#ffd31d",
+    "background_color": "#333",
+    "display": "standalone",
+    "share_target": {
+        "action": "/share-zip-file",
+        "enctype": "multipart/form-data",
+        "method": "POST",
+        "params": {
+            "title": "name",
+            "text": "description",
+            "url": "link",
+            "files": [
+                {
+                    "name": "zip",
+                    "accept": [ ".zip",
+                        "application/zip",
+                        "application/x-zip",
+                        "application/x-zip-compressed",
+                        "application/octet-stream",
+                        "application/x-compress",
+                        "application/x-compressed",
+                        "multipart/x-zip"
+                    ]
+                }
+            ]
+        }
+    }
+}
+
