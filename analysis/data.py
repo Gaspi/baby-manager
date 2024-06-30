@@ -51,21 +51,19 @@ def get_minute_df_from_json(data):
 
 def get_hour_df_from_minute_df(mdf):
     df = mdf.groupby( mdf.datetime.dt.floor('h') ).agg({
+        'datetime'   : 'min',
         'sleep'      : lambda group: np.sum(group) / 60,
-        'nursingfeed': np.sum,
-        'bottlefeed' : np.sum,
-        'nappy'      : np.sum,
+        'nursingfeed': 'sum',
+        'bottlefeed' : 'sum',
+        'nappy'      : 'sum',
         })
-    # Return the dataframe of all entries except for the last available hour
-    # which is most likely incomplete
-    return df[:-1]
+    # Return the dataframe of all entries
+    # except for the first and last available hours
+    # which are most likely incomplete
+    return df[1:-1]
 
 
 # Pretty printing function to print 1h intervals using their bounds
 def pp_timeslot(t, delta='1h'):
     return "[{} - {}]".format(t,t+pd.to_timedelta(delta))
-
-
-def add_shifted_to_hour_df(df, nb_shifts):
-    return pd.concat({ f'{k}_{i}': df[k].shift(i) for k in all_babykeys for i in range(nb_shifts+1) }, axis=1)
 
