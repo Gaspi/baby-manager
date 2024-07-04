@@ -42,6 +42,8 @@ X['age'] = (df['datetime'] - df['datetime'].min()) / pd.Timedelta(hours=1)
 X['day']  = X['age'] % 24
 X['week'] = X['age'] % (24 * 7)
 
+
+
 # Output vector (amount of sleep at time t)
 y = df['sleep']
 
@@ -51,13 +53,17 @@ y = y[history_depth:]
 
 
 # Shuffling dataset (optional)
-shuffle = np.random.permutation(df.index)
+shuffle = np.random.permutation(X.index)
 
 
 npX = X.reindex(shuffle).to_numpy()
 npy = y.reindex(shuffle).to_numpy()
+
+all_zeros = np.zeros(len(npy))
+all_ones  = np.ones(len(npy))
 def evaluate_model(f):
-    return sum(np.square(f(npX) - npy))
+    predict = np.maximum(all_zeros, np.minimum(all_ones,f(npX)))
+    return sum(np.square(predict - npy))
 
 
 ###############################################################################
@@ -65,15 +71,13 @@ def evaluate_model(f):
 ###############################################################################
 
 def constant_predict(X):
-    y = np.full(len(X), mean_sleep)
-    return np.maximum(np.zeros(y.shape), np.minimum(np.ones(y.shape),y))
+    return np.full(len(X), mean_sleep)
 
 print(f"Constant model score: {evaluate_model(constant_predict)}")
 
 
 def nochange_predict(X):
-    y = X[:,0]
-    return np.maximum(np.zeros(y.shape), np.minimum(np.ones(y.shape),y))
+    return X[:,0]
 
 print(f"No change model score: {evaluate_model(nochange_predict)}")
 
@@ -83,15 +87,11 @@ print(f"No change model score: {evaluate_model(nochange_predict)}")
 ###############################################################################
 
 from sklearn import linear_model
+
 l_reg = linear_model.LinearRegression()
+l_reg.fit(npX, npy)
 
-l_reg.fit(X.reindex(shuffle).to_numpy(), y.reindex(shuffle).to_numpy())
-
-def l_predict(X):
-    y = l_reg.predict(X)
-    return np.maximum(np.zeros(y.shape), np.minimum(np.ones(y.shape),y))
-
-print(f"Linear model score: {evaluate_model(l_predict)}")
+print(f"Linear model score: {evaluate_model(l_reg.predict)}")
 
 
 ###############################################################################
@@ -104,15 +104,11 @@ print(f"Linear model score: {evaluate_model(l_predict)}")
 
 from sklearn.linear_model import LinearRegression
 from lineartree import LinearTreeRegressor
+
 lt_reg = LinearTreeRegressor(base_estimator=LinearRegression())
+lt_reg.fit(npX, npy)
 
-lt_reg.fit(X.reindex(shuffle).to_numpy(), y.reindex(shuffle).to_numpy())
-
-def lt_predict(X):
-    y = lt_reg.predict(X)
-    return np.maximum(np.zeros(y.shape), np.minimum(np.ones(y.shape),y))
-
-print(f"Linear tree score: {evaluate_model(lt_predict)}")
+print(f"Linear tree score: {evaluate_model(lt_reg.predict)}")
 
 
 print("Predictions:")
@@ -120,7 +116,7 @@ print("Predictions:")
 # We start our predictions after the latest available time
 predict_time = df.index.max()
 
-predict_x = df[df.index == predict_time].drop([f'{k}_0' for k in all_babykeys], axis=1).to_numpy()
+predict_x = X[X.index == X.index.max()].to_numpy()
 for p in range(nb_predictions):
     predict_time = predict_time + pd.to_timedelta('1h')
     print(f"{pp_timeslot(predict_time)}  ->  {lt_predict(predict_x)[0]:.0%}")
