@@ -37,11 +37,25 @@ mean_sleep = df['sleep'].mean()
 history_depth = 48
 
 # Input vectors : remove values at time t (keep only strict history : t-1, t-2, etc.)
-X = pd.concat({ f'{k}_{i}': df[k].shift(i) for k in all_babykeys for i in range(1,49) }, axis=1)
-X['age'] = (df['datetime'] - df['datetime'].min()) / pd.Timedelta(hours=1)
-X['day']  = X['age'] % 24
-X['week'] = X['age'] % (24 * 7)
+#X = pd.concat({ f'{k}_{i}': df[k].shift(i) for k in all_babykeys for i in range(1,49) }, axis=1)
+#X['age'] = (df['datetime'] - df['datetime'].min()) / pd.Timedelta(hours=1)
+#X['day']  = X['age'] % 24
+#X['week'] = X['age'] % (24 * 7)
 
+
+def compute_input(time_index):
+    X = pd.DataFrame(
+        data = {
+            f'{k}_{i}': [ df[k].get(t-pd.to_timedelta(i,'h'), 0) for t in time_index ]
+            for k in all_babykeys for i in range(1,49)
+            },
+        index = time_index)
+    X['age'] = (X.index - df['datetime'].min()) / pd.Timedelta(hours=1)
+    X['hour'] = X.index.to_series().dt.hour
+    X['day_of_week'] = X.index.to_series().dt.day_of_week
+    return X
+
+X = compute_input(df.index)
 
 
 # Output vector (amount of sleep at time t)
@@ -114,16 +128,11 @@ print(f"Linear tree score: {evaluate_model(lt_reg.predict)}")
 print("Predictions:")
 
 # We start our predictions after the latest available time
-predict_time = df.index.max()
+predict_times = [ df.index.max() + pd.to_timedelta(t, 'h') for t in range(1,nb_predictions+1) ]
+predict_X = compute_input(predict_times)
+prediction = lt_reg.predict(predict_X.to_numpy())
 
-predict_x = X[X.index == X.index.max()].to_numpy()
-for p in range(nb_predictions):
-    predict_time = predict_time + pd.to_timedelta('1h')
-    print(f"{pp_timeslot(predict_time)}  ->  {lt_predict(predict_x)[0]:.0%}")
-    predict_x = np.roll(predict_x, 1)
-    predict_x.flat[0] = 0
-
-
-
+for (t, p) in zip(predict_times, prediction) :
+    print(f"{pp_timeslot(t)}  ->  {max(0, min(1, p)):.0%}")
 
 
