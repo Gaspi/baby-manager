@@ -15,9 +15,12 @@ from data import (
     get_minute_df_from_json,
     pp_timeslot,
     )
-import pandas as pd
-import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import tensorflow as tf
 
 # Load data from file
 jsondata = get_json_from_zip_file(extract_file)
@@ -32,28 +35,38 @@ mean_sleep = df['sleep'].mean()
 #########              Building learning parameters                   #########
 ###############################################################################
 
+min_time = df['datetime'].min()
+def get_time_columns(time):
+    if type(time) == pd.DatetimeIndex:
+        time = time.to_series()
+    age = (time - min_time) / pd.Timedelta(hours=1)
+    return pd.DataFrame(
+        data = {
+            'age': age,
+            'hour': time.dt.hour,
+            'day_of_week': time.dt.day_of_week,
+            'day_sin': np.sin(age * (2 * np.pi / 24)),
+            'day_cos': np.cos(age * (2 * np.pi / 24)),
+            'week_sin': np.sin(age * (2 * np.pi / (24 * 7))),
+            'week_cos': np.cos(age * (2 * np.pi / (24 * 7))),
+            'year_sin': np.sin(age * (2 * np.pi / (24 * 7 * 365.25))),
+            'year_cos': np.cos(age * (2 * np.pi / (24 * 7 * 365.25)))
+            },
+        index = time)
 
 # Predict value at t from the [history_depth] previous values : t-1, t-2, ... t-[history_depth]
 history_depth = 48
 
-# Input vectors : remove values at time t (keep only strict history : t-1, t-2, etc.)
-#X = pd.concat({ f'{k}_{i}': df[k].shift(i) for k in all_babykeys for i in range(1,49) }, axis=1)
-#X['age'] = (df['datetime'] - df['datetime'].min()) / pd.Timedelta(hours=1)
-#X['day']  = X['age'] % 24
-#X['week'] = X['age'] % (24 * 7)
-
-
-def compute_input(time_index):
-    X = pd.DataFrame(
+def get_history_columns(time):
+    return pd.DataFrame(
         data = {
-            f'{k}_{i}': [ df[k].get(t-pd.to_timedelta(i,'h'), 0) for t in time_index ]
-            for k in all_babykeys for i in range(1,49)
+            f'{k}_{i}': [ df[k].get(t-pd.to_timedelta(i,'h'), 0) for t in time ]
+            for k in all_babykeys for i in range(1,history_depth+1)
             },
-        index = time_index)
-    X['age'] = (X.index - df['datetime'].min()) / pd.Timedelta(hours=1)
-    X['hour'] = X.index.to_series().dt.hour
-    X['day_of_week'] = X.index.to_series().dt.day_of_week
-    return X
+        index = time)
+
+def compute_input(time):
+    return pd.concat( [get_history_columns(time), get_time_columns(time) ], axis=1)
 
 X = compute_input(df.index)
 
@@ -134,5 +147,4 @@ prediction = lt_reg.predict(predict_X.to_numpy())
 
 for (t, p) in zip(predict_times, prediction) :
     print(f"{pp_timeslot(t)}  ->  {max(0, min(1, p)):.0%}")
-
 
